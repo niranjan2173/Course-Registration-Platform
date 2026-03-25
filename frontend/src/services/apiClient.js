@@ -25,13 +25,20 @@ const getApiBaseUrl = () => {
   return 'http://localhost:4000/api';
 };
 
+export const apiBaseUrl = getApiBaseUrl();
+
 const apiClient = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: apiBaseUrl,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Debug base URL in web dev console
+if (typeof window !== 'undefined') {
+  console.log('[API] Base URL:', apiClient.defaults.baseURL);
+}
 
 apiClient.interceptors.request.use(config => {
   const token = getToken();

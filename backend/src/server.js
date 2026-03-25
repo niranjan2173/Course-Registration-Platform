@@ -1,4 +1,9 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const streamifier = require('streamifier');
+const cloudinary = require('cloudinary').v2;
 const cors = require('cors');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
@@ -6,11 +11,44 @@ const jwt = require('jsonwebtoken');
 const { initDb, getDb, mapUser, mapCourse, mapRegistration } = require('./db');
 const { requireAuth, requireAdmin } = require('./middleware/auth');
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const uploadsRoot = path.join(__dirname, '..', 'uploads');
+const avatarsDir = path.join(uploadsRoot, 'avatars');
+fs.mkdirSync(avatarsDir, { recursive: true });
+
+app.use('/uploads', express.static(uploadsRoot));
+
+const cloudinaryConfigured =
+  Boolean(process.env.CLOUDINARY_URL) ||
+  (process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET);
+
+if (cloudinaryConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+}
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image uploads are allowed'));
+    }
+  },
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 
 function createToken(user) {
   return jwt.sign(
@@ -277,6 +315,52 @@ app.get('/api/users/me', requireAuth, async (req, res) => {
     return res.json({ user: mapUser(user) });
   } catch (error) {
     return res.status(500).json({ message: 'Unable to fetch profile' });
+  }
+});
+
+app.post('/api/users/me/avatar', requireAuth, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Image file is required' });
+    }
+
+    const db = await getDb();
+    let profileImage = null;
+
+    if (cloudinaryConfigured) {
+      const folder = process.env.CLOUDINARY_FOLDER || 'course-registration/avatars';
+      const publicId = `user-${req.user.id}-${Date.now()}`;
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder,
+            public_id: publicId,
+            resource_type: 'image',
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+
+      profileImage = uploadResult.secure_url;
+    } else {
+      const ext = path.extname(req.file.originalname || '').toLowerCase() || '.jpg';
+      const safeExt = ext.length <= 6 ? ext : '.jpg';
+      const filename = `user-${req.user.id}-${Date.now()}${safeExt}`;
+      const targetPath = path.join(avatarsDir, filename);
+      fs.writeFileSync(targetPath, req.file.buffer);
+      profileImage = `/uploads/avatars/${filename}`;
+    }
+
+    await db.run('UPDATE users SET profile_image = ? WHERE id = ?', [profileImage, req.user.id]);
+    const updated = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    return res.json({ user: mapUser(updated) });
+  } catch (error) {
+    return res.status(500).json({ message: 'Unable to upload profile image' });
   }
 });
 
@@ -839,6 +923,16 @@ app.post('/api/registrations/:courseId/attendance', requireAuth, async (req, res
   } catch (error) {
     return res.status(500).json({ message: 'Unable to mark attendance' });
   }
+});
+
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: err.message });
+  }
+  if (err && err.message === 'Only image uploads are allowed') {
+    return res.status(400).json({ message: err.message });
+  }
+  return next(err);
 });
 
 app.use((_req, res) => {

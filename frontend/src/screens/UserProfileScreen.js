@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import authService from '../services/authService';
+import { apiBaseUrl } from '../services/apiClient';
 import theme from '../theme';
 import { AppButton, AppCard } from '../components';
 
@@ -28,12 +29,21 @@ export default function UserProfileScreen({ navigation }) {
   }, []);
   const age = useMemo(() => getAgeFromDob(user?.dob), [user?.dob]);
   const isStudent = user?.role === 'student';
+  const resolveImageUrl = path => {
+    if (!path) return null;
+    if (/^https?:\/\//i.test(path)) return path;
+    const base = apiBaseUrl.replace(/\/api\/?$/i, '');
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${normalized}`;
+  };
+  const avatarUri = resolveImageUrl(user?.profileImage);
+  const avatarSource = avatarUri ? { uri: avatarUri } : require('../../assets/logo-white.png');
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.profileIconWrap}>
-          <Image source={require('../../assets/logo-white.png')} style={styles.profileIcon} />
+          <Image source={avatarSource} style={styles.profileIcon} />
         </View>
         <Text style={styles.name}>{user?.name || 'Student'}</Text>
         <Text style={styles.email}>{user?.email || '-'}</Text>
@@ -73,7 +83,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  profileIcon: { width: 56, height: 56, resizeMode: 'contain' },
+  profileIcon: { width: 86, height: 86, resizeMode: 'cover', borderRadius: 43 },
   name: { marginTop: theme.spacing.sm, fontSize: theme.typography.sizes.xl, fontWeight: theme.typography.weights.bold, color: theme.colors.textPrimary },
   email: { marginTop: theme.spacing.xs, color: theme.colors.textPrimary + 'AA' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.colors.border },

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import authService from '../services/authService';
 import courseService from '../services/courseService';
 import registrationService from '../services/registrationService';
+import { apiBaseUrl } from '../services/apiClient';
 import { getErrorMessage } from '../utils/errorUtils';
 import theme from '../theme';
 import { AppButton, AppCard, EmptyState, LoadingState, StatusBanner } from '../components';
@@ -14,8 +15,17 @@ export default function DashboardScreen({ navigation }) {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [user, setUser] = useState(() => authService.getCurrentUser());
 
-  const currentUser = authService.getCurrentUser();
+  const resolveImageUrl = path => {
+    if (!path) return null;
+    if (/^https?:\/\//i.test(path)) return path;
+    const base = apiBaseUrl.replace(/\/api\/?$/i, '');
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${normalized}`;
+  };
+  const avatarUri = resolveImageUrl(user?.profileImage);
+  const avatarSource = avatarUri ? { uri: avatarUri } : require('../../assets/logo-white.png');
 
   const loadData = useCallback(async () => {
     try {
@@ -25,6 +35,7 @@ export default function DashboardScreen({ navigation }) {
       ]);
       setCourses(allCourses);
       setRegistrations(myRegs);
+      setUser(authService.getCurrentUser());
       setError('');
     } catch (loadError) {
       setError(getErrorMessage(loadError));
@@ -59,24 +70,24 @@ export default function DashboardScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Open profile"
         >
-          <Image source={require('../../assets/logo-white.png')} style={styles.avatarImage} />
+          <Image source={avatarSource} style={styles.avatarImage} />
         </TouchableOpacity>
       </View>
 
       <AppCard style={styles.welcomeCard}>
         <Text style={styles.welcomeText}>Welcome back,</Text>
-        <Text style={styles.welcomeName}>{currentUser?.name || 'Student'}</Text>
+        <Text style={styles.welcomeName}>{user?.name || 'Student'}</Text>
       </AppCard>
 
       <AppCard style={styles.profileCard}>
         <LinearGradient colors={['#0f2d3d', '#1a4f63']} style={styles.profileBanner} />
         <View style={styles.profileRow}>
           <View style={styles.profileAvatar}>
-            <Image source={require('../../assets/logo-white.png')} style={styles.profileLogo} />
+            <Image source={avatarSource} style={styles.profileLogo} />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{currentUser?.name || 'Student'}</Text>
-            <Text style={styles.profileDept}>{currentUser?.department || 'Department'}</Text>
+            <Text style={styles.profileName}>{user?.name || 'Student'}</Text>
+            <Text style={styles.profileDept}>{user?.department || 'Department'}</Text>
           </View>
           <AppButton
             title="Edit"
@@ -145,7 +156,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  avatarImage: { width: 26, height: 26, resizeMode: 'contain' },
+  avatarImage: { width: 40, height: 40, resizeMode: 'cover', borderRadius: 20 },
   welcomeCard: { marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.border },
   welcomeText: { color: theme.colors.textPrimary + 'CC', fontSize: theme.typography.sizes.sm, letterSpacing: 0.3 },
   welcomeName: {
@@ -173,7 +184,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.md,
     backgroundColor: theme.colors.surface,
   },
-  profileLogo: { width: 34, height: 34, resizeMode: 'contain' },
+  profileLogo: { width: 60, height: 60, resizeMode: 'cover', borderRadius: 30 },
   profileInfo: { flex: 1 },
   profileName: { fontSize: theme.typography.sizes.lg, fontWeight: theme.typography.weights.bold, color: theme.colors.textPrimary },
   profileDept: { marginTop: 2, color: theme.colors.textPrimary + 'AA' },

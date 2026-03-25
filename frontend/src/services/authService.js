@@ -36,6 +36,24 @@ const authService = {
     return response.data.user;
   },
 
+  async uploadAvatar(asset) {
+    const data = new FormData();
+    const fileName = asset?.fileName || `avatar-${Date.now()}.jpg`;
+    const fileType = asset?.mimeType || 'image/jpeg';
+
+    data.append('avatar', {
+      uri: asset.uri,
+      name: fileName,
+      type: fileType,
+    });
+
+    const response = await apiClient.post('/users/me/avatar', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    setCurrentUser(response.data.user);
+    return response.data.user;
+  },
+
   logout() {
     clearSession();
   },

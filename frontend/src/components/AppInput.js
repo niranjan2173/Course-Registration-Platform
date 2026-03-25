@@ -22,6 +22,7 @@ export default function AppInput({
 }) {
   const [isSecureVisible, setIsSecureVisible] = useState(false);
   const Container = onPress ? TouchableOpacity : View;
+  const safeValue = value ?? '';
 
   return (
     <View style={styles.wrapper}>
@@ -37,7 +38,7 @@ export default function AppInput({
         ) : null}
         <TextInput
           style={styles.input}
-          value={value}
+          value={safeValue}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={theme.colors.textPrimary + '88'}

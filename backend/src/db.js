@@ -108,6 +108,7 @@ async function initDb() {
   await ensureColumn(database, 'users', 'study_level', 'TEXT');
   await ensureColumn(database, 'users', 'institution', 'TEXT');
   await ensureColumn(database, 'users', 'dob', 'TEXT');
+  await ensureColumn(database, 'users', 'profile_image', 'TEXT');
   await ensureColumn(database, 'users', 'profile_completed', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn(database, 'registrations', 'attendance_percent', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn(database, 'courses', 'learn_link', 'TEXT');
@@ -726,6 +727,7 @@ function mapUser(userRow) {
     studyLevel: userRow.study_level,
     institution: userRow.institution,
     dob: userRow.dob,
+    profileImage: userRow.profile_image || null,
     profileCompleted: Boolean(userRow.profile_completed),
   };
 }

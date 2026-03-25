@@ -1,3 +1,4 @@
 node_modules/
 .env
 course_registration.db
+uploads/
